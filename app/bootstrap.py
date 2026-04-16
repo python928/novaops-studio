@@ -52,7 +52,7 @@ def run(argv: list[str] | None = None) -> int:
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Scalable Qt Widgets template")
+    parser = argparse.ArgumentParser(description="NovaOps Studio desktop shell")
     parser.add_argument("--theme", choices=("dark", "light"), help="Initial theme mode")
     parser.add_argument("--accent", help="Accent color as hex, e.g. #2F6FED")
     parser.add_argument("--rtl", dest="rtl", action="store_true", help="Enable RTL layout")

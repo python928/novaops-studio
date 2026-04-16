@@ -37,7 +37,7 @@ class MainWindow(QMainWindow):
             "settings": "Theme, accent, and layout preferences.",
         }
 
-        self.setWindowTitle("Scalable Enterprise Qt Template")
+        self.setWindowTitle("NovaOps Studio")
         self.resize(1360, 860)
 
         central = QFrame()

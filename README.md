@@ -1,4 +1,4 @@
-# High-Performance, Scalable Qt Widgets Template (PyQt6)
+# NovaOps Studio: High-Performance Scalable PyQt6 Template
 
 A production-oriented starter repository for building modern, fast, and highly scalable Qt Widgets desktop applications.
 

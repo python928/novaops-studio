@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 APP_ORGANIZATION = "python928"
-APP_NAME = "QtScalableTemplate"
+APP_NAME = "NovaOpsStudio"
 APP_VERSION = "0.1.0"
 
 DEFAULT_THEME_MODE = "dark"
