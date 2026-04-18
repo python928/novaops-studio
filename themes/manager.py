@@ -60,6 +60,14 @@ class ThemeManager(QObject):
 
         self._app.setStyleSheet(stylesheet)
 
+        # Icons are tinted from the active palette, so clear icon caches when theme changes.
+        try:
+            from services.icons import clear_icon_cache
+
+            clear_icon_cache()
+        except Exception:
+            pass
+
         self._mode = mode
         self._accent = accent
         self.themeChanged.emit(mode.value, accent)

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QEvent, Qt
 from PyQt6.QtWidgets import (
+    QApplication,
+    QComboBox,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -19,6 +21,7 @@ from core.app_context import AppContext
 from modules import ModuleSpec, default_module_specs
 from services.icons import icon
 from themes.tokens import ThemeMode
+from widgets.controls import harmonize_combo_popup
 
 
 class MainWindow(QMainWindow):
@@ -59,6 +62,9 @@ class MainWindow(QMainWindow):
         self._context.events.statusMessage.connect(status_bar.showMessage)
 
         self._context.theme.themeChanged.connect(self._on_theme_changed)
+        app = QApplication.instance()
+        if app is not None:
+            app.installEventFilter(self)
         self._on_theme_changed(self._context.theme.mode.value, self._context.theme.accent)
 
         first_key = next(iter(self._specs.keys()))
@@ -90,6 +96,7 @@ class MainWindow(QMainWindow):
         menu_button.clicked.connect(
             lambda: self._context.events.statusMessage.emit("Main menu is ready for custom actions")
         )
+        self._menu_button = menu_button
 
         avatar = QLabel("UI")
         avatar.setObjectName("MainRailAvatar")
@@ -181,7 +188,7 @@ class MainWindow(QMainWindow):
         self._global_search = QLineEdit()
         self._global_search.setObjectName("GlobalSearch")
         self._global_search.setPlaceholderText("Quick search or command...")
-        self._global_search.setClearButtonEnabled(True)
+        self._global_search.setClearButtonEnabled(False)
         self._global_search.returnPressed.connect(self._emit_search_status)
 
         self._mode_chip = QLabel("-")
@@ -218,10 +225,20 @@ class MainWindow(QMainWindow):
             self._stack.addWidget(page)
 
         self._stack.setCurrentWidget(page)
+        self._harmonize_dropdowns(page)
         self._page_title.setText(spec.title)
         self._page_subtitle.setText(self._module_hints.get(module_key, "Scalable module surface"))
         self._context.events.moduleChanged.emit(module_key)
         self._update_nav_state(module_key)
+
+    def _harmonize_dropdowns(self, root: QWidget | None = None) -> None:
+        target = root if root is not None else self
+
+        if isinstance(target, QComboBox):
+            harmonize_combo_popup(target)
+
+        for combo in target.findChildren(QComboBox):
+            harmonize_combo_popup(combo)
 
     def _update_nav_state(self, active_key: str) -> None:
         for key, button in self._nav_buttons.items():
@@ -243,7 +260,29 @@ class MainWindow(QMainWindow):
 
     def _on_theme_changed(self, mode: str, accent: str) -> None:
         is_dark = mode == ThemeMode.DARK.value
+        self._menu_button.setIcon(icon("heroicons/24-solid/bars-3"))
+        for key, spec in self._specs.items():
+            button = self._nav_buttons.get(key)
+            if button is not None:
+                button.setIcon(icon(spec.icon_name))
+
+        for page in self._pages.values():
+            refresh_icons = getattr(page, "refresh_icons", None)
+            if callable(refresh_icons):
+                refresh_icons()
+
+        self._harmonize_dropdowns(self)
+
         self._mode_chip.setText("Dark Mode" if is_dark else "Light Mode")
         self._theme_toggle.setIcon(icon("sun" if is_dark else "moon"))
         self._theme_toggle.setText("Switch To Light" if is_dark else "Switch To Dark")
         self._context.events.statusMessage.emit(f"Theme: {mode}, accent: {accent}")
+
+    def eventFilter(self, obj, event) -> bool:
+        if isinstance(obj, QComboBox) and event.type() in (
+            QEvent.Type.Show,
+            QEvent.Type.Polish,
+        ):
+            harmonize_combo_popup(obj)
+
+        return super().eventFilter(obj, event)

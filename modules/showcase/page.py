@@ -1,18 +1,17 @@
 from __future__ import annotations
 
-from PyQt6.QtCore import QDate, QDateTime, QSize, Qt, QTime
-from PyQt6.QtGui import QColor, QPalette
+from PyQt6.QtCore import QDate, QDateTime, Qt, QTime
 from PyQt6.QtWidgets import (
     QCalendarWidget,
     QCheckBox,
     QComboBox,
+    QCompleter,
     QDateEdit,
     QDateTimeEdit,
     QDial,
     QDoubleSpinBox,
     QFormLayout,
     QFrame,
-    QGraphicsDropShadowEffect,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -26,7 +25,6 @@ from PyQt6.QtWidgets import (
     QRadioButton,
     QScrollArea,
     QSlider,
-    QSizePolicy,
     QSpinBox,
     QTabWidget,
     QTableWidget,
@@ -44,149 +42,91 @@ from PyQt6.QtWidgets import (
 from core.app_context import AppContext
 from services.icons import icon
 from widgets import (
+    ActionTile,
+    CommandDeck,
     EmptyStateCard,
     FilterChipBar,
+    InfoCard,
     InsightBanner,
     KpiStrip,
     MetricCard,
+    PrimaryButton,
+    SectionTitle,
     SegmentedControl,
     StatusLozenge,
     StepProgress,
     TimelineFeed,
 )
+from widgets.controls import AppButton, AppToolButton, SearchComboBox, harmonize_combo_popup
 
 
 class WidgetShowcasePage(QWidget):
-    def __init__(self, _: AppContext) -> None:
+    def __init__(self, context: AppContext) -> None:
         super().__init__()
-        self.setObjectName("FlutterReferenceCanvas")
+        self.setObjectName("WidgetShowcasePage")
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(20, 12, 20, 18)
-        root.setSpacing(0)
-        root.addStretch(1)
+        root.setContentsMargins(20, 16, 20, 18)
+        root.setSpacing(12)
 
-        self._board = self._build_board()
-        root.addWidget(self._board, 0, Qt.AlignmentFlag.AlignHCenter)
-        root.addStretch(1)
+        title = QLabel("Widget Showcase")
+        title.setObjectName("ShowcaseHeaderTitle")
+        title.setProperty("title", "h2")
 
-        self._dots = self._create_decorative_dots()
-
-    def _build_board(self) -> QWidget:
-        board = QFrame()
-        board.setObjectName("FlutterBoard")
-        board.setMinimumSize(860, 620)
-        board.setMaximumWidth(1160)
-        board.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-
-        shadow = QGraphicsDropShadowEffect(board)
-        shadow.setBlurRadius(34)
-        shadow.setOffset(0, 14)
-        shadow.setColor(QColor(40, 72, 140, 45))
-        board.setGraphicsEffect(shadow)
-
-        board_layout = QHBoxLayout(board)
-        board_layout.setContentsMargins(0, 0, 0, 0)
-        board_layout.setSpacing(0)
-        board_layout.addWidget(self._build_note_rail())
-        board_layout.addWidget(self._build_note_body(), 1)
-        return board
-
-    def _build_note_rail(self) -> QWidget:
-        rail = QFrame()
-        rail.setObjectName("FlutterNoteRail")
-        rail.setFixedWidth(308)
-
-        layout = QVBoxLayout(rail)
-        layout.setContentsMargins(16, 14, 14, 16)
-        layout.setSpacing(8)
-
-        header = QHBoxLayout()
-        header.setSpacing(8)
-
-        menu_button = QToolButton()
-        menu_button.setObjectName("FlutterMenuButton")
-        menu_button.setIcon(icon("heroicons/24-solid/bars-3"))
-        menu_button.setIconSize(QSize(22, 22))
-        menu_button.setCursor(Qt.CursorShape.PointingHandCursor)
-
-        avatar = QLabel("AM")
-        avatar.setObjectName("FlutterAvatar")
-        avatar.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        header.addWidget(menu_button, 0, Qt.AlignmentFlag.AlignLeft)
-        header.addStretch(1)
-        header.addWidget(avatar)
-        header.addStretch(1)
-        layout.addLayout(header)
-        layout.addSpacing(10)
-
-        note_items = (
-            "Meeting Points #1",
-            "Important notes",
-            "Veggies Needed",
-            "Prince food",
-            "Remainders",
-            "List of Tasks",
-            "Lectures",
+        subtitle = QLabel(
+            "Direct widget gallery with improved dropdowns and date selection."
         )
-        for label in note_items:
-            button = QPushButton(label)
-            button.setProperty("noteTab", True)
-            button.setProperty("activeItem", label == "Veggies Needed")
-            button.setCursor(Qt.CursorShape.PointingHandCursor)
-            layout.addWidget(button)
-
-        layout.addStretch(1)
-        return rail
-
-    def _build_note_body(self) -> QWidget:
-        body = QFrame()
-        body.setObjectName("FlutterNoteBody")
-
-        layout = QVBoxLayout(body)
-        layout.setContentsMargins(26, 22, 26, 20)
-        layout.setSpacing(16)
+        subtitle.setObjectName("ShowcaseHeaderSubtitle")
+        subtitle.setProperty("muted", True)
+        subtitle.setWordWrap(True)
 
         toolbar = QHBoxLayout()
-        toolbar.setSpacing(10)
+        toolbar.setContentsMargins(0, 0, 0, 0)
+        toolbar.setSpacing(8)
 
-        toolbar_icons = (
-            ("Tt", None, True),
-            ("", "heroicons/24-solid/viewfinder-circle", False),
-            ("", "heroicons/24-solid/check-circle", True),
-            ("", "heroicons/24-solid/paper-clip", False),
-            ("", "heroicons/24-solid/code-bracket", False),
-            ("", "heroicons/24-solid/microphone", False),
-            ("", "heroicons/24-solid/video-camera", False),
+        scope_label = QLabel("Section")
+        scope_label.setProperty("muted", True)
+
+        self._scope_combo = QComboBox()
+        self._scope_combo.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        self._scope_combo.setMinimumWidth(190)
+        self._scope_combo.addItems(
+            [
+                "All Widgets",
+                "Inputs",
+                "Buttons",
+                "Toggles & Progress",
+                "Item Views",
+                "Containers",
+                "Custom Widgets",
+            ]
         )
-        for text, icon_name, selected in toolbar_icons:
-            button = QToolButton()
-            button.setObjectName("FlutterToolbarButton")
-            button.setProperty("selected", selected)
-            if text:
-                button.setText(text)
-                button.setProperty("glyph", True)
-            if icon_name:
-                button.setIcon(icon(icon_name))
-                button.setIconSize(QSize(18, 18))
-            button.setCursor(Qt.CursorShape.PointingHandCursor)
-            toolbar.addWidget(button)
+        harmonize_combo_popup(self._scope_combo)
+        self._scope_combo.currentTextChanged.connect(
+            lambda value: context.events.statusMessage.emit(f"Showcase section: {value}")
+        )
 
+        date_label = QLabel("Preview date")
+        date_label.setProperty("muted", True)
+
+        self._preview_date = QDateEdit(QDate.currentDate())
+        self._preview_date.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        self._preview_date.setCalendarPopup(True)
+        self._preview_date.setDisplayFormat("MMM d, yyyy")
+        self._preview_date.setMaximumWidth(188)
+        self._preview_date.dateChanged.connect(
+            lambda value: context.events.statusMessage.emit(
+                f"Showcase date: {value.toString('MMM d, yyyy')}"
+            )
+        )
+
+        toolbar.addWidget(scope_label)
+        toolbar.addWidget(self._scope_combo)
         toolbar.addStretch(1)
-        layout.addLayout(toolbar)
-
-        title = QLabel("All Widgets Gallery")
-        title.setObjectName("FlutterTaskTitle")
-        layout.addWidget(title)
-
-        subtitle = QLabel("Everything in one place with the same reference-style pattern.")
-        subtitle.setObjectName("FlutterBodySubtitle")
-        subtitle.setProperty("muted", True)
-        layout.addWidget(subtitle)
+        toolbar.addWidget(date_label)
+        toolbar.addWidget(self._preview_date)
 
         scroll = QScrollArea()
-        scroll.setObjectName("FlutterBodyScroll")
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
 
@@ -194,7 +134,6 @@ class WidgetShowcasePage(QWidget):
         scroll_layout = QVBoxLayout(scroll_content)
         scroll_layout.setContentsMargins(0, 0, 6, 0)
         scroll_layout.setSpacing(12)
-
         scroll_layout.addWidget(self._build_inputs_section())
         scroll_layout.addWidget(self._build_buttons_section())
         scroll_layout.addWidget(self._build_toggles_progress_section())
@@ -202,43 +141,23 @@ class WidgetShowcasePage(QWidget):
         scroll_layout.addWidget(self._build_containers_section())
         scroll_layout.addWidget(self._build_custom_widgets_section())
         scroll_layout.addStretch(1)
-
         scroll.setWidget(scroll_content)
-        layout.addWidget(scroll, 1)
 
-        actions = QHBoxLayout()
-        actions.setSpacing(18)
-        actions.addStretch(1)
-
-        action_icons = (
-            "heroicons/24-solid/pencil-square",
-            "heroicons/24-solid/bold",
-            "heroicons/24-solid/document",
-            "heroicons/24-solid/trash",
-            "heroicons/24-solid/paper-airplane",
-        )
-        for icon_name in action_icons:
-            button = QToolButton()
-            button.setObjectName("FlutterActionButton")
-            button.setIcon(icon(icon_name))
-            button.setIconSize(QSize(20, 20))
-            button.setCursor(Qt.CursorShape.PointingHandCursor)
-            actions.addWidget(button)
-
-        actions.addStretch(1)
-        layout.addLayout(actions)
-        return body
+        root.addWidget(title)
+        root.addWidget(subtitle)
+        root.addLayout(toolbar)
+        root.addWidget(scroll, 1)
 
     def _section_card(self, title: str) -> tuple[QFrame, QVBoxLayout]:
         card = QFrame()
-        card.setObjectName("FlutterSectionCard")
+        card.setObjectName("ShowcaseSectionCard")
 
         outer = QVBoxLayout(card)
         outer.setContentsMargins(16, 14, 16, 16)
         outer.setSpacing(10)
 
         header = QLabel(title)
-        header.setObjectName("FlutterSectionTitle")
+        header.setObjectName("ShowcaseSectionTitle")
         outer.addWidget(header)
 
         content = QVBoxLayout()
@@ -260,29 +179,71 @@ class WidgetShowcasePage(QWidget):
         password.setEchoMode(QLineEdit.EchoMode.Password)
 
         combo = QComboBox()
+        combo.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         combo.addItems(["Option A", "Option B", "Option C"])
+        harmonize_combo_popup(combo)
 
         editable_combo = QComboBox()
+        editable_combo.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         editable_combo.setEditable(True)
+        editable_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        editable_combo.setMaxVisibleItems(12)
         editable_combo.addItems(["Editable 1", "Editable 2", "Editable 3"])
+        editable_line_edit = editable_combo.lineEdit()
+        if editable_line_edit is not None:
+            editable_line_edit.setPlaceholderText("Type to search options...")
+            editable_line_edit.setClearButtonEnabled(False)
+
+        editable_completer = editable_combo.completer()
+        if editable_completer is not None:
+            editable_completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
+            editable_completer.setFilterMode(Qt.MatchFlag.MatchContains)
+            editable_completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+            editable_completer.setMaxVisibleItems(editable_combo.maxVisibleItems())
+
+        harmonize_combo_popup(editable_combo)
+
+        search_combo = SearchComboBox(placeholder_text="Search and select a city...")
+        search_combo.addItems(
+            [
+                "Amsterdam",
+                "Berlin",
+                "Cairo",
+                "Dubai",
+                "Lisbon",
+                "London",
+                "Marrakesh",
+                "New York",
+                "Paris",
+                "Singapore",
+                "Tokyo",
+                "Toronto",
+            ]
+        )
+        search_combo.setCurrentIndex(-1)
 
         spin = QSpinBox()
+        spin.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         spin.setRange(0, 1000)
         spin.setValue(42)
 
         dspin = QDoubleSpinBox()
+        dspin.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         dspin.setRange(0.0, 9999.99)
         dspin.setDecimals(2)
         dspin.setValue(125.75)
 
         date_edit = QDateEdit(QDate.currentDate())
+        date_edit.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         date_edit.setCalendarPopup(True)
         date_edit.setDisplayFormat("MMM d, yyyy")
 
         time_edit = QTimeEdit(QTime.currentTime())
+        time_edit.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         time_edit.setDisplayFormat("h:mm AP")
 
         dt_edit = QDateTimeEdit(QDateTime.currentDateTime())
+        dt_edit.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         dt_edit.setCalendarPopup(True)
         dt_edit.setDisplayFormat("MMM d, yyyy h:mm AP")
 
@@ -290,13 +251,25 @@ class WidgetShowcasePage(QWidget):
         form.addRow("Password", password)
         form.addRow("QComboBox", combo)
         form.addRow("Editable Combo", editable_combo)
+        form.addRow("Search Combo", search_combo)
         form.addRow("QSpinBox", spin)
         form.addRow("QDoubleSpinBox", dspin)
         form.addRow("QDateEdit", date_edit)
         form.addRow("QTimeEdit", time_edit)
         form.addRow("QDateTimeEdit", dt_edit)
 
-        for field in (line, password, combo, editable_combo, spin, dspin, date_edit, time_edit, dt_edit):
+        for field in (
+            line,
+            password,
+            combo,
+            editable_combo,
+            search_combo,
+            spin,
+            dspin,
+            date_edit,
+            time_edit,
+            dt_edit,
+        ):
             label = form.labelForField(field)
             if label is not None:
                 label.setProperty("muted", True)
@@ -318,8 +291,11 @@ class WidgetShowcasePage(QWidget):
         row1 = QHBoxLayout()
         row1.setSpacing(8)
 
-        btn_default = QPushButton("Default Button")
-        btn_default.setProperty("tonal", True)
+        btn_subtle = QPushButton("Subtle Action")
+        btn_subtle.setProperty("subtle", True)
+
+        btn_tonal = QPushButton("Tonal Button")
+        btn_tonal.setProperty("tonal", True)
 
         btn_primary = QPushButton("Primary Button")
         btn_primary.setProperty("primary", True)
@@ -327,7 +303,8 @@ class WidgetShowcasePage(QWidget):
         btn_danger = QPushButton("Danger Button")
         btn_danger.setProperty("danger", True)
 
-        row1.addWidget(btn_default)
+        row1.addWidget(btn_subtle)
+        row1.addWidget(btn_tonal)
         row1.addWidget(btn_primary)
         row1.addWidget(btn_danger)
 
@@ -337,7 +314,7 @@ class WidgetShowcasePage(QWidget):
         tool_search = QToolButton()
         tool_search.setText("Search")
         tool_search.setIcon(icon("search"))
-        tool_search.setProperty("tonal", True)
+        tool_search.setProperty("subtle", True)
         tool_search.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
 
         tool_settings = QToolButton()
@@ -349,7 +326,7 @@ class WidgetShowcasePage(QWidget):
         tool_refresh = QToolButton()
         tool_refresh.setText("Refresh")
         tool_refresh.setIcon(icon("refresh"))
-        tool_refresh.setProperty("tonal", True)
+        tool_refresh.setProperty("primary", True)
         tool_refresh.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
 
         row2.addWidget(tool_search)
@@ -364,7 +341,8 @@ class WidgetShowcasePage(QWidget):
         card, content = self._section_card("Toggles & Progress")
 
         checks = QHBoxLayout()
-        checks.setSpacing(10)
+        checks.setContentsMargins(6, 0, 6, 0)
+        checks.setSpacing(12)
 
         cb1 = QCheckBox("QCheckBox")
         cb1.setChecked(True)
@@ -374,6 +352,10 @@ class WidgetShowcasePage(QWidget):
         rb1 = QRadioButton("Option 1")
         rb1.setChecked(True)
         rb2 = QRadioButton("Option 2")
+
+        for option in (cb1, cb2, rb1, rb2):
+            option.setProperty("optionChip", True)
+            option.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
 
         checks.addWidget(cb1)
         checks.addWidget(cb2)
@@ -475,7 +457,34 @@ class WidgetShowcasePage(QWidget):
     def _build_custom_widgets_section(self) -> QWidget:
         card, content = self._section_card("Custom Enterprise Widgets")
 
+        controls_title = SectionTitle("Shared Controls")
+
+        controls_row = QHBoxLayout()
+        controls_row.setSpacing(8)
+
+        controls_row.addWidget(PrimaryButton("PrimaryButton"))
+        controls_row.addWidget(AppButton("AppButton Tonal", variant="tonal"))
+        controls_row.addWidget(AppButton("AppButton Subtle", variant="subtle"))
+
+        tool_button = AppToolButton("AppToolButton", variant="subtle")
+        tool_button.setIcon(icon("refresh"))
+        tool_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        controls_row.addWidget(tool_button)
+        controls_row.addStretch(1)
+
+        info_cards_row = QHBoxLayout()
+        info_cards_row.setSpacing(8)
+        info_cards_row.addWidget(InfoCard("InfoCard", "42", "Simple shared metric card"))
+        info_cards_row.addWidget(InfoCard("Accent", "#4F8CFF", "Current visual token"))
+
         segmented = SegmentedControl(["Overview", "Finance", "Risk"], initial="Overview")
+
+        command_deck = CommandDeck(
+            "Command-first shell",
+            "A reusable search and action layer for opening modules, running workflows, and navigating large systems.",
+            badge_text="LAB",
+            suggestions=("Create module", "Open dashboard", "Review blockers", "Tune theme"),
+        )
 
         lozenges = QHBoxLayout()
         lozenges.setSpacing(7)
@@ -524,6 +533,34 @@ class WidgetShowcasePage(QWidget):
             )
         )
 
+        action_tiles = QGridLayout()
+        action_tiles.setHorizontalSpacing(8)
+        action_tiles.setVerticalSpacing(8)
+        action_tiles.addWidget(
+            ActionTile(
+                "New workspace",
+                "Create a fresh module surface with shared shell pieces.",
+                meta="Template",
+                badge_text="+",
+                tone="success",
+                action_text="Create",
+            ),
+            0,
+            0,
+        )
+        action_tiles.addWidget(
+            ActionTile(
+                "Audit UI density",
+                "Check whether high-density tables and cards still read clearly.",
+                meta="Review",
+                badge_text="!",
+                tone="warning",
+                action_text="Audit",
+            ),
+            0,
+            1,
+        )
+
         progress = StepProgress(
             ["Source", "Normalize", "Validate", "Publish"],
             current_index=2,
@@ -560,50 +597,18 @@ class WidgetShowcasePage(QWidget):
         )
         banner.set_action_visible(False)
 
+        content.addWidget(controls_title)
+        content.addLayout(controls_row)
+        content.addLayout(info_cards_row)
         content.addWidget(segmented)
+        content.addWidget(command_deck)
         content.addLayout(lozenges)
         content.addWidget(chips)
         content.addWidget(strip)
         content.addLayout(metrics_row)
+        content.addLayout(action_tiles)
         content.addLayout(timeline_row)
         content.addWidget(empty_state)
         content.addWidget(banner)
         return card
 
-    def _create_decorative_dots(self) -> dict[str, QFrame]:
-        names = (
-            "FlutterDotTopRight",
-            "FlutterDotLeftMid",
-            "FlutterDotRightMid",
-            "FlutterDotBottomLeft",
-            "FlutterDotBottomCenter",
-        )
-        dots: dict[str, QFrame] = {}
-        for name in names:
-            dot = QFrame(self)
-            dot.setObjectName(name)
-            dot.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-            dot.lower()
-            dots[name] = dot
-        return dots
-
-    def resizeEvent(self, event) -> None:
-        super().resizeEvent(event)
-
-        width = self.width()
-        height = self.height()
-        dot_specs = {
-            "FlutterDotTopRight": (width - 190, 4, 168),
-            "FlutterDotLeftMid": (max(6, width // 12), height // 3, 58),
-            "FlutterDotRightMid": (width - 130, (height * 2) // 3 - 26, 62),
-            "FlutterDotBottomLeft": (-118, height - 244, 296),
-            "FlutterDotBottomCenter": (width // 2 - 34, height - 104, 68),
-        }
-        accent = self.palette().color(QPalette.ColorRole.Link).name()
-        for name, (x_pos, y_pos, size) in dot_specs.items():
-            dot = self._dots.get(name)
-            if dot is not None:
-                dot.setGeometry(x_pos, y_pos, size, size)
-                dot.setStyleSheet(
-                    f"background-color: {accent}; border: none; border-radius: {size // 2}px;"
-                )

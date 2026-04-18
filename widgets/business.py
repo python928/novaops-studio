@@ -8,18 +8,20 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLayout,
     QLabel,
+    QLineEdit,
     QProgressBar,
     QPushButton,
     QSizePolicy,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
+from widgets.controls import AppButton, AppToolButton, refresh_style
+
 
 def _refresh_style(widget: QWidget) -> None:
-    widget.style().unpolish(widget)
-    widget.style().polish(widget)
-    widget.update()
+    refresh_style(widget)
 
 
 def _clear_layout(layout: QLayout) -> None:
@@ -28,6 +30,8 @@ def _clear_layout(layout: QLayout) -> None:
         widget = item.widget()
         child_layout = item.layout()
         if widget is not None:
+            widget.hide()
+            widget.setParent(None)
             widget.deleteLater()
         elif child_layout is not None:
             _clear_layout(child_layout)
@@ -318,6 +322,183 @@ class SegmentedControl(QWidget):
 
         if emit:
             self.selectionChanged.emit(value)
+
+
+class CommandDeck(QFrame):
+    submitted = pyqtSignal(str)
+    shortcutTriggered = pyqtSignal(str)
+
+    def __init__(
+        self,
+        title: str,
+        message: str,
+        *,
+        badge_text: str = "AI",
+        placeholder: str = "Search commands, modules, or records...",
+        submit_text: str = "Run",
+        suggestions: Sequence[str] | None = None,
+    ) -> None:
+        super().__init__()
+        self.setObjectName("CommandDeck")
+        self._chip_buttons: dict[str, QPushButton] = {}
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(18, 18, 18, 18)
+        root.setSpacing(12)
+
+        top_row = QHBoxLayout()
+        top_row.setContentsMargins(0, 0, 0, 0)
+        top_row.setSpacing(8)
+
+        badge = QLabel(badge_text)
+        badge.setObjectName("CommandDeckBadge")
+        badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        meta = QLabel("Command Deck")
+        meta.setProperty("chip", True)
+
+        top_row.addWidget(badge)
+        top_row.addWidget(meta)
+        top_row.addStretch(1)
+
+        self._title = QLabel(title)
+        self._title.setObjectName("CommandDeckTitle")
+
+        self._body = QLabel(message)
+        self._body.setObjectName("CommandDeckBody")
+        self._body.setWordWrap(True)
+
+        search_row = QHBoxLayout()
+        search_row.setContentsMargins(0, 0, 0, 0)
+        search_row.setSpacing(8)
+
+        self._search = QLineEdit()
+        self._search.setObjectName("CommandDeckSearch")
+        self._search.setPlaceholderText(placeholder)
+        self._search.setClearButtonEnabled(False)
+        self._search.returnPressed.connect(self._emit_submit)
+
+        self._submit = AppButton(submit_text, variant="primary")
+        self._submit.setObjectName("CommandDeckSubmit")
+        self._submit.clicked.connect(self._emit_submit)
+
+        search_row.addWidget(self._search, 1)
+        search_row.addWidget(self._submit)
+
+        self._chip_row = QHBoxLayout()
+        self._chip_row.setContentsMargins(0, 0, 0, 0)
+        self._chip_row.setSpacing(6)
+
+        root.addLayout(top_row)
+        root.addWidget(self._title)
+        root.addWidget(self._body)
+        root.addLayout(search_row)
+        root.addLayout(self._chip_row)
+
+        self.set_suggestions(suggestions or [])
+
+    def text(self) -> str:
+        return self._search.text().strip()
+
+    def set_text(self, value: str) -> None:
+        self._search.setText(value)
+
+    def focus_search(self) -> None:
+        self._search.setFocus(Qt.FocusReason.ShortcutFocusReason)
+
+    def set_suggestions(self, suggestions: Sequence[str]) -> None:
+        _clear_layout(self._chip_row)
+        self._chip_buttons.clear()
+
+        for label in suggestions:
+            text = str(label).strip()
+            if not text or text in self._chip_buttons:
+                continue
+
+            button = AppButton(text, variant="subtle")
+            button.setProperty("commandChip", True)
+            button.clicked.connect(lambda _checked=False, value=text: self._emit_shortcut(value))
+            self._chip_buttons[text] = button
+            self._chip_row.addWidget(button)
+
+        self._chip_row.addStretch(1)
+
+    def _emit_submit(self) -> None:
+        self.submitted.emit(self.text())
+
+    def _emit_shortcut(self, value: str) -> None:
+        self._search.setText(value)
+        self.shortcutTriggered.emit(value)
+
+
+class ActionTile(QFrame):
+    activated = pyqtSignal(str)
+
+    def __init__(
+        self,
+        title: str,
+        body: str,
+        *,
+        meta: str = "",
+        badge_text: str = "+",
+        tone: str = "info",
+        action_text: str = "Open",
+    ) -> None:
+        super().__init__()
+        self.setObjectName("ActionTile")
+        self.setProperty("tone", tone)
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(16, 15, 16, 15)
+        root.setSpacing(10)
+
+        top_row = QHBoxLayout()
+        top_row.setContentsMargins(0, 0, 0, 0)
+        top_row.setSpacing(8)
+
+        self._badge = QLabel(badge_text)
+        self._badge.setObjectName("ActionTileBadge")
+        self._badge.setProperty("tone", tone)
+        self._badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self._meta = QLabel(meta)
+        self._meta.setObjectName("ActionTileMeta")
+        self._meta.setVisible(bool(meta))
+
+        top_row.addWidget(self._badge)
+        top_row.addStretch(1)
+        top_row.addWidget(self._meta)
+
+        self._title = QLabel(title)
+        self._title.setObjectName("ActionTileTitle")
+        self._title.setWordWrap(True)
+
+        self._body = QLabel(body)
+        self._body.setObjectName("ActionTileBody")
+        self._body.setWordWrap(True)
+
+        footer = QHBoxLayout()
+        footer.setContentsMargins(0, 0, 0, 0)
+        footer.setSpacing(8)
+
+        self._action = AppButton(action_text, variant="subtle")
+        self._action.setObjectName("ActionTileAction")
+        self._action.clicked.connect(lambda: self.activated.emit(title))
+
+        chevron = AppToolButton(variant="subtle", icon_only=True)
+        chevron.setObjectName("ActionTileChevron")
+        chevron.setText(">")
+        chevron.clicked.connect(lambda: self.activated.emit(title))
+
+        footer.addWidget(self._action)
+        footer.addStretch(1)
+        footer.addWidget(chevron)
+
+        root.addLayout(top_row)
+        root.addWidget(self._title)
+        root.addWidget(self._body)
+        root.addStretch(1)
+        root.addLayout(footer)
 
 
 class StepProgress(QFrame):

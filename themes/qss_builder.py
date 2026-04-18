@@ -1,8 +1,116 @@
 from __future__ import annotations
 
+import tempfile
+from pathlib import Path
+
 from PyQt6.QtGui import QColor
 
 from themes.tokens import ThemeTokens
+
+
+_CHEVRON_DOWN_PATH = (
+    "M4.21967 6.21967C4.51256 5.92678 4.98744 5.92678 5.28033 6.21967"
+    "L8 8.93934L10.7197 6.21967C11.0126 5.92678 11.4874 5.92678 11.7803 6.21967"
+    "C12.0732 6.51256 12.0732 6.98744 11.7803 7.28033L8.53033 10.5303"
+    "C8.23744 10.8232 7.76256 10.8232 7.46967 10.5303L4.21967 7.28033"
+    "C3.92678 6.98744 3.92678 6.51256 4.21967 6.21967Z"
+)
+_CHEVRON_UP_PATH = (
+    "M11.7803 9.78033C11.4874 10.0732 11.0126 10.0732 10.7197 9.78033"
+    "L8 7.06066L5.28033 9.78033C4.98744 10.0732 4.51256 10.0732 4.21967 9.78033"
+    "C3.92678 9.48744 3.92678 9.01256 4.21967 8.71967L7.46967 5.46967"
+    "C7.76256 5.17678 8.23744 5.17678 8.53033 5.46967L11.7803 8.71967"
+    "C12.0732 9.01256 12.0732 9.48744 11.7803 9.78033Z"
+)
+_CHEVRON_LEFT_PATH = (
+    "M9.78033 4.21967C10.0732 4.51256 10.0732 4.98744 9.78033 5.28033"
+    "L7.06066 8L9.78033 10.7197C10.0732 11.0126 10.0732 11.4874 9.78033 11.7803"
+    "C9.48744 12.0732 9.01256 12.0732 8.71967 11.7803L5.46967 8.53033"
+    "C5.17678 8.23744 5.17678 7.76256 5.46967 7.46967L8.71967 4.21967"
+    "C9.01256 3.92678 9.48744 3.92678 9.78033 4.21967Z"
+)
+_CHEVRON_RIGHT_PATH = (
+    "M6.21967 4.21967C6.51256 3.92678 6.98744 3.92678 7.28033 4.21967"
+    "L10.5303 7.46967C10.8232 7.76256 10.8232 8.23744 10.5303 8.53033"
+    "L7.28033 11.7803C6.98744 12.0732 6.51256 12.0732 6.21967 11.7803"
+    "C5.92678 11.4874 5.92678 11.0126 6.21967 10.7197L8.93934 8"
+    "L6.21967 5.28033C5.92678 4.98744 5.92678 4.51256 6.21967 4.21967Z"
+)
+
+
+def _to_hex(color: str, fallback: str) -> str:
+    qcolor = QColor(color)
+    if not qcolor.isValid():
+        qcolor = QColor(fallback)
+    return qcolor.name().upper()
+
+
+def _svg_path_icon(path_data: str, color_hex: str) -> str:
+    return (
+        '<svg width="16" height="16" viewBox="0 0 16 16" '
+        'fill="none" xmlns="http://www.w3.org/2000/svg">'
+        f'<path fill-rule="evenodd" clip-rule="evenodd" d="{path_data}" fill="{color_hex}"/>'
+        "</svg>"
+    )
+
+
+def _build_theme_icon_paths(tokens: ThemeTokens) -> dict[str, str]:
+    fallback = {
+        "chevron_down": "resources/icons/heroicons/16-solid/chevron-down.svg",
+        "chevron_up": "resources/icons/heroicons/16-solid/chevron-up.svg",
+        "chevron_left": "resources/icons/tabler/chevron-left.svg",
+        "chevron_right": "resources/icons/lucide/chevron-right.svg",
+        "chevron_down_muted": "resources/icons/heroicons/16-solid/chevron-down.svg",
+        "chevron_up_muted": "resources/icons/heroicons/16-solid/chevron-up.svg",
+        "chevron_left_muted": "resources/icons/tabler/chevron-left.svg",
+        "chevron_right_muted": "resources/icons/lucide/chevron-right.svg",
+    }
+
+    text_secondary = _to_hex(tokens.text_secondary, "#5B6D88")
+    text_muted = _to_hex(tokens.text_muted, "#8A9BB7")
+
+    key = "-".join(
+        (
+            text_secondary.lstrip("#"),
+            text_muted.lstrip("#"),
+        )
+    )
+
+    out_dir = Path(tempfile.gettempdir()) / "mystock-theme-icons" / key
+    try:
+        out_dir.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return fallback
+
+    definitions = {
+        "chevron_down": (_CHEVRON_DOWN_PATH, text_secondary),
+        "chevron_up": (_CHEVRON_UP_PATH, text_secondary),
+        "chevron_left": (_CHEVRON_LEFT_PATH, text_secondary),
+        "chevron_right": (_CHEVRON_RIGHT_PATH, text_secondary),
+        "chevron_down_muted": (_CHEVRON_DOWN_PATH, text_muted),
+        "chevron_up_muted": (_CHEVRON_UP_PATH, text_muted),
+        "chevron_left_muted": (_CHEVRON_LEFT_PATH, text_muted),
+        "chevron_right_muted": (_CHEVRON_RIGHT_PATH, text_muted),
+    }
+
+    paths = fallback.copy()
+    for name, (path_data, color_hex) in definitions.items():
+        target = out_dir / f"{name}.svg"
+        svg_content = _svg_path_icon(path_data, color_hex)
+        try:
+            needs_write = True
+            if target.exists():
+                try:
+                    needs_write = target.read_text(encoding="utf-8") != svg_content
+                except OSError:
+                    needs_write = False
+            if needs_write:
+                target.write_text(svg_content, encoding="utf-8")
+            paths[name] = target.as_posix()
+        except OSError:
+            continue
+
+    return paths
 
 
 def _rgba(color: str, alpha: int) -> str:
@@ -16,8 +124,10 @@ def build_stylesheet(tokens: ThemeTokens) -> str:
     surface_alt_glass = _rgba(tokens.surface_alt, 220)
     sidebar_glass = _rgba(tokens.sidebar, 236)
     border_soft = _rgba(tokens.border, 182)
+    border_strong = _rgba(tokens.border, 230)
     accent_soft = _rgba(tokens.accent, 48)
     accent_mid = _rgba(tokens.accent, 94)
+    accent_focus = _rgba(tokens.accent, 132)
     success_soft = _rgba(tokens.success, 45)
     success_mid = _rgba(tokens.success, 120)
     warning_soft = _rgba(tokens.warning, 45)
@@ -25,10 +135,20 @@ def build_stylesheet(tokens: ThemeTokens) -> str:
     danger_soft = _rgba(tokens.danger, 45)
     danger_mid = _rgba(tokens.danger, 120)
 
+    icons = _build_theme_icon_paths(tokens)
+    chevron_down_icon = icons["chevron_down"]
+    chevron_up_icon = icons["chevron_up"]
+    chevron_left_icon = icons["chevron_left"]
+    chevron_right_icon = icons["chevron_right"]
+    chevron_down_muted_icon = icons["chevron_down_muted"]
+    chevron_up_muted_icon = icons["chevron_up_muted"]
+    chevron_left_muted_icon = icons["chevron_left_muted"]
+    chevron_right_muted_icon = icons["chevron_right_muted"]
+
     return f"""
     QWidget {{
         color: {tokens.text_primary};
-        font-family: "Manrope", "Inter", "Segoe UI", "Noto Sans", sans-serif;
+        font-family: "IBM Plex Sans", "Manrope", "Inter", "Segoe UI", "Noto Sans", sans-serif;
         font-size: 14px;
         selection-background-color: {tokens.selection_bg};
         selection-color: {tokens.text_primary};
@@ -240,13 +360,14 @@ def build_stylesheet(tokens: ThemeTokens) -> str:
 
     QPushButton,
     QToolButton {{
-        min-height: 38px;
+        min-height: 40px;
         padding: 7px 14px;
-        border-radius: 11px;
+        border-radius: 14px;
         border: 1px solid {border_soft};
         background-color: {surface_alt_glass};
         color: {tokens.text_primary};
         font-weight: 600;
+        font-size: 13px;
     }}
 
     QPushButton:hover,
@@ -259,6 +380,12 @@ def build_stylesheet(tokens: ThemeTokens) -> str:
     QToolButton:pressed {{
         background-color: {tokens.selection_bg};
         border-color: {tokens.accent_pressed};
+    }}
+
+    QPushButton:focus,
+    QToolButton:focus {{
+        border-color: {accent_focus};
+        background-color: {surface_glass};
     }}
 
     QPushButton:disabled,
@@ -280,6 +407,29 @@ def build_stylesheet(tokens: ThemeTokens) -> str:
     QToolButton[tonal="true"]:hover {{
         background-color: {tokens.selection_bg};
         border-color: {tokens.accent};
+    }}
+
+    QPushButton[subtle="true"],
+    QToolButton[subtle="true"] {{
+        background-color: transparent;
+        border-color: transparent;
+        color: {tokens.text_secondary};
+    }}
+
+    QPushButton[subtle="true"]:hover,
+    QToolButton[subtle="true"]:hover {{
+        background-color: {surface_alt_glass};
+        border-color: {border_soft};
+        color: {tokens.text_primary};
+    }}
+
+    QToolButton[iconOnly="true"] {{
+        min-width: 38px;
+        max-width: 38px;
+        min-height: 38px;
+        max-height: 38px;
+        padding: 0;
+        border-radius: 12px;
     }}
 
     QPushButton[sectionTitle="true"] {{
@@ -653,12 +803,20 @@ def build_stylesheet(tokens: ThemeTokens) -> str:
     QDoubleSpinBox,
     QDateEdit,
     QTimeEdit,
-    QDateTimeEdit,
+    QDateTimeEdit {{
+        min-height: 40px;
+        max-height: 40px;
+        border: 1px solid {border_soft};
+        border-radius: 14px;
+        background-color: {surface_alt_glass};
+        color: {tokens.text_primary};
+    }}
+
     QTextEdit,
     QPlainTextEdit {{
-        min-height: 38px;
+        min-height: 40px;
         border: 1px solid {border_soft};
-        border-radius: 12px;
+        border-radius: 14px;
         background-color: {surface_alt_glass};
         color: {tokens.text_primary};
     }}
@@ -677,7 +835,18 @@ def build_stylesheet(tokens: ThemeTokens) -> str:
     QTimeEdit,
     QDateTimeEdit {{
         padding: 6px 12px;
+        padding-left: 12px;
         padding-right: 34px;
+    }}
+
+    QComboBox:rtl,
+    QDateEdit:rtl,
+    QTimeEdit:rtl,
+    QDateTimeEdit:rtl,
+    QSpinBox:rtl,
+    QDoubleSpinBox:rtl {{
+        padding-left: 34px;
+        padding-right: 12px;
     }}
 
     QTextEdit,
@@ -689,6 +858,15 @@ def build_stylesheet(tokens: ThemeTokens) -> str:
         placeholder-text-color: {tokens.text_muted};
     }}
 
+    QLineEdit::clear-button,
+    QComboBox QLineEdit::clear-button {{
+        image: none;
+        width: 0px;
+        height: 0px;
+        margin: 0;
+        padding: 0;
+    }}
+
     QLineEdit:focus,
     QComboBox:focus,
     QSpinBox:focus,
@@ -698,7 +876,7 @@ def build_stylesheet(tokens: ThemeTokens) -> str:
     QDateTimeEdit:focus,
     QTextEdit:focus,
     QPlainTextEdit:focus {{
-        border-color: {tokens.accent};
+        border-color: {accent_focus};
         background-color: {surface_glass};
     }}
 
@@ -730,87 +908,170 @@ def build_stylesheet(tokens: ThemeTokens) -> str:
 
     QComboBox::drop-down {{
         subcontrol-origin: padding;
-        subcontrol-position: top right;
-        width: 30px;
+        subcontrol-position: center right;
+        width: 18px;
         border: none;
-        border-left: 1px solid {border_soft};
-        border-top-right-radius: 12px;
-        border-bottom-right-radius: 12px;
+        border-radius: 0;
+        margin: 0 8px 0 0;
+        background: transparent;
+    }}
+
+    QComboBox:rtl::drop-down {{
+        margin: 0 0 0 8px;
+    }}
+
+    QComboBox::drop-down:hover,
+    QComboBox::drop-down:on {{
+        background: transparent;
+    }}
+
+    QComboBox:on {{
+        border-color: {accent_focus};
         background-color: {surface_glass};
     }}
 
     QComboBox::down-arrow {{
-        image: url(resources/icons/heroicons/16-solid/chevron-down.svg);
-        width: 10px;
-        height: 10px;
+        image: url({chevron_down_icon});
+        width: 12px;
+        height: 12px;
     }}
 
-    QComboBox QAbstractItemView {{
-        border: 1px solid {border_soft};
-        border-radius: 10px;
-        padding: 6px;
-        background-color: {surface_glass};
+    QComboBox::down-arrow:disabled {{
+        image: url({chevron_down_muted_icon});
+    }}
+
+    QComboBox QLineEdit {{
+        border: none;
+        background: transparent;
+        padding: 0;
+        margin: 0;
+        min-height: 0;
         color: {tokens.text_primary};
         selection-background-color: {tokens.selection_bg};
         selection-color: {tokens.text_primary};
     }}
 
-    QSpinBox::up-arrow,
-    QDoubleSpinBox::up-arrow,
-    QTimeEdit::up-arrow {{
-        image: url(resources/icons/heroicons/16-solid/chevron-up.svg);
-        width: 10px;
-        height: 10px;
-    }}
-
-    QSpinBox::down-arrow,
-    QDoubleSpinBox::down-arrow,
-    QTimeEdit::down-arrow {{
-        image: url(resources/icons/heroicons/16-solid/chevron-down.svg);
-        width: 10px;
-        height: 10px;
-    }}
-
-    QSpinBox::up-button,
-    QDoubleSpinBox::up-button,
-    QTimeEdit::up-button {{
-        subcontrol-origin: border;
-        subcontrol-position: top right;
-        width: 24px;
+    QComboBox QLineEdit:focus {{
         border: none;
-        border-left: 1px solid {border_soft};
-        border-bottom: 1px solid {border_soft};
-        border-top-right-radius: 12px;
-        background-color: {surface_glass};
+        background: transparent;
     }}
 
-    QSpinBox::down-button,
-    QDoubleSpinBox::down-button,
-    QTimeEdit::down-button {{
-        subcontrol-origin: border;
-        subcontrol-position: bottom right;
-        width: 24px;
-        border: none;
-        border-left: 1px solid {border_soft};
-        border-bottom-right-radius: 12px;
+    QComboBox QAbstractItemView,
+    QFrame#QComboBoxPrivateContainer QAbstractItemView,
+    QAbstractItemView#ComboPopupView {{
+        border: 1px solid {border_soft};
+        border-radius: 16px;
+        padding: 6px;
         background-color: {surface_glass};
+        color: {tokens.text_primary};
+        selection-background-color: {tokens.selection_bg};
+        selection-color: {tokens.text_primary};
+        outline: 0;
     }}
 
-    QSpinBox::up-button:hover,
-    QSpinBox::down-button:hover,
-    QDoubleSpinBox::up-button:hover,
-    QDoubleSpinBox::down-button:hover,
-    QTimeEdit::up-button:hover,
-    QTimeEdit::down-button:hover,
-    QComboBox::drop-down:hover {{
+    QComboBox QAbstractItemView::item,
+    QFrame#QComboBoxPrivateContainer QAbstractItemView::item,
+    QAbstractItemView#ComboPopupView::item {{
+        min-height: 30px;
+        height: 30px;
+        padding: 5px 8px;
+        border-radius: 8px;
+        margin: 0;
+        border: 1px solid transparent;
+    }}
+
+    QComboBox QAbstractItemView::item:hover,
+    QFrame#QComboBoxPrivateContainer QAbstractItemView::item:hover,
+    QAbstractItemView#ComboPopupView::item:hover {{
         background-color: {surface_alt_glass};
     }}
 
+    QComboBox QAbstractItemView::item:selected,
+    QFrame#QComboBoxPrivateContainer QAbstractItemView::item:selected,
+    QAbstractItemView#ComboPopupView::item:selected {{
+        background-color: {tokens.selection_bg};
+        color: {tokens.text_primary};
+        border: 1px solid transparent;
+        font-weight: 600;
+    }}
+
+    QAbstractSpinBox::up-arrow {{
+        image: url({chevron_up_icon});
+        width: 12px;
+        height: 12px;
+    }}
+
+    QAbstractSpinBox::down-arrow {{
+        image: url({chevron_down_icon});
+        width: 12px;
+        height: 12px;
+    }}
+
+    QAbstractSpinBox::up-arrow:disabled {{
+        image: url({chevron_up_muted_icon});
+    }}
+
+    QAbstractSpinBox::down-arrow:disabled {{
+        image: url({chevron_down_muted_icon});
+    }}
+
+    QAbstractSpinBox::up-button {{
+        subcontrol-origin: padding;
+        subcontrol-position: top right;
+        width: 16px;
+        border: none;
+        border-radius: 0;
+        margin: 0 8px 0 0;
+        background: transparent;
+    }}
+
+    QAbstractSpinBox:rtl::up-button {{
+        margin: 0 0 0 8px;
+    }}
+
+    QAbstractSpinBox::down-button {{
+        subcontrol-origin: padding;
+        subcontrol-position: bottom right;
+        width: 16px;
+        border: none;
+        border-radius: 0;
+        margin: 0 8px 0 0;
+        background: transparent;
+    }}
+
+    QAbstractSpinBox:rtl::down-button {{
+        margin: 0 0 0 8px;
+    }}
+
+    QAbstractSpinBox::up-button:hover,
+    QAbstractSpinBox::down-button:hover,
+    QComboBox::drop-down:hover {{
+        background: transparent;
+    }}
+
     QDateEdit::up-button,
-    QDateTimeEdit::up-button {{
+    QDateTimeEdit::up-button,
+    QDateEdit::down-button,
+    QDateTimeEdit::down-button {{
         width: 0px;
         border: none;
         background: transparent;
+    }}
+
+    QDateEdit::drop-down,
+    QDateTimeEdit::drop-down {{
+        subcontrol-origin: padding;
+        subcontrol-position: center right;
+        width: 18px;
+        border: none;
+        border-radius: 0;
+        margin: 0 8px 0 0;
+        background: transparent;
+    }}
+
+    QDateEdit:rtl::drop-down,
+    QDateTimeEdit:rtl::drop-down {{
+        margin: 0 0 0 8px;
     }}
 
     QDateEdit::up-arrow,
@@ -820,40 +1081,68 @@ def build_stylesheet(tokens: ThemeTokens) -> str:
         image: none;
     }}
 
-    QDateEdit::down-button,
-    QDateTimeEdit::down-button {{
-        subcontrol-origin: padding;
-        subcontrol-position: top right;
-        width: 30px;
-        border: none;
-        border-left: 1px solid {border_soft};
-        border-top-right-radius: 12px;
-        border-bottom-right-radius: 12px;
-        background-color: {surface_glass};
-    }}
-
     QDateEdit::down-arrow,
     QDateTimeEdit::down-arrow {{
-        image: url(resources/icons/heroicons/16-solid/chevron-down.svg);
-        width: 10px;
-        height: 10px;
+        image: url({chevron_down_icon});
+        width: 12px;
+        height: 12px;
+    }}
+
+    QDateEdit::down-arrow:disabled,
+    QDateTimeEdit::down-arrow:disabled {{
+        image: url({chevron_down_muted_icon});
     }}
 
     QDateEdit::down-button:hover,
     QDateTimeEdit::down-button:hover {{
-        background-color: {surface_alt_glass};
+        background: transparent;
     }}
 
     QCheckBox,
     QRadioButton {{
         spacing: 8px;
+        color: {tokens.text_primary};
+        font-size: 13px;
+        font-weight: 500;
+    }}
+
+    QCheckBox[optionChip="true"],
+    QRadioButton[optionChip="true"] {{
+        min-height: 30px;
+        padding: 4px 10px;
+        border: 1px solid transparent;
+        border-radius: 10px;
+        background: transparent;
+        spacing: 7px;
+        color: {tokens.text_secondary};
+    }}
+
+    QCheckBox[optionChip="true"]:hover,
+    QRadioButton[optionChip="true"]:hover {{
+        border-color: {accent_mid};
+        background-color: {accent_soft};
+        color: {tokens.text_primary};
+    }}
+
+    QCheckBox[optionChip="true"]:checked,
+    QRadioButton[optionChip="true"]:checked {{
+        border-color: {accent_mid};
+        background-color: {accent_soft};
+        color: {tokens.text_primary};
+        font-weight: 600;
+    }}
+
+    QCheckBox[optionChip="true"]::indicator,
+    QRadioButton[optionChip="true"]::indicator {{
+        width: 18px;
+        height: 18px;
     }}
 
     QCheckBox::indicator {{
-        width: 18px;
-        height: 18px;
-        border-radius: 5px;
-        border: 1px solid {border_soft};
+        width: 20px;
+        height: 20px;
+        border-radius: 6px;
+        border: 1px solid {border_strong};
         background-color: {surface_glass};
     }}
 
@@ -867,16 +1156,22 @@ def build_stylesheet(tokens: ThemeTokens) -> str:
         image: url(resources/icons/heroicons/16-solid/check.svg);
     }}
 
+    QCheckBox::indicator:indeterminate {{
+        border-color: {accent_mid};
+        background-color: {accent_soft};
+        image: url(resources/icons/heroicons/16-solid/minus.svg);
+    }}
+
     QCheckBox::indicator:disabled {{
         border-color: {border_soft};
         background-color: {surface_alt_glass};
     }}
 
     QRadioButton::indicator {{
-        width: 18px;
-        height: 18px;
-        border-radius: 9px;
-        border: 1px solid {border_soft};
+        width: 20px;
+        height: 20px;
+        border-radius: 10px;
+        border: 1px solid {border_strong};
         background-color: {surface_glass};
     }}
 
@@ -960,14 +1255,40 @@ def build_stylesheet(tokens: ThemeTokens) -> str:
         background-color: {surface_glass};
         alternate-background-color: {tokens.table_alt};
         border: 1px solid {border_soft};
-        border-radius: 12px;
+        border-radius: 16px;
         gridline-color: {tokens.border};
     }}
 
     QCalendarWidget {{
         background-color: {surface_glass};
         border: 1px solid {border_soft};
-        border-radius: 12px;
+        border-radius: 16px;
+    }}
+
+    QMenu {{
+        background-color: {surface_glass};
+        border: 1px solid {border_soft};
+        border-radius: 16px;
+        padding: 6px;
+        color: {tokens.text_primary};
+    }}
+
+    QMenu::item {{
+        min-height: 30px;
+        padding: 5px 8px;
+        border-radius: 8px;
+        margin: 0;
+    }}
+
+    QMenu::item:selected {{
+        background-color: {tokens.selection_bg};
+        color: {tokens.text_primary};
+    }}
+
+    QMenu::separator {{
+        height: 1px;
+        background: {border_soft};
+        margin: 5px 8px;
     }}
 
     QListWidget::item,
@@ -975,7 +1296,15 @@ def build_stylesheet(tokens: ThemeTokens) -> str:
     QTableView::item,
     QTableWidget::item {{
         min-height: 30px;
-        padding: 4px 7px;
+        padding: 5px 8px;
+    }}
+
+    QListWidget::item:hover,
+    QTreeView::item:hover,
+    QTableView::item:hover,
+    QTableWidget::item:hover {{
+        background-color: {surface_alt_glass};
+        border-radius: 8px;
     }}
 
     QListWidget::item:selected,
@@ -998,8 +1327,13 @@ def build_stylesheet(tokens: ThemeTokens) -> str:
         border: none;
         border-right: 1px solid {border_soft};
         border-bottom: 1px solid {border_soft};
-        padding: 10px 8px;
+        padding: 11px 8px;
+        text-align: center;
         font-weight: 600;
+    }}
+
+    QHeaderView::section:hover {{
+        background-color: {surface_glass};
     }}
 
     QTabWidget::pane {{
@@ -1050,8 +1384,8 @@ def build_stylesheet(tokens: ThemeTokens) -> str:
         border: none;
         border-bottom: 1px solid {border_soft};
         background-color: {surface_alt_glass};
-        border-top-left-radius: 12px;
-        border-top-right-radius: 12px;
+        border-top-left-radius: 16px;
+        border-top-right-radius: 16px;
     }}
 
     QCalendarWidget QToolButton {{
@@ -1060,7 +1394,49 @@ def build_stylesheet(tokens: ThemeTokens) -> str:
         border-radius: 10px;
         background-color: transparent;
         border: none;
+        color: {tokens.text_secondary};
+        qproperty-iconSize: 16px 16px;
+    }}
+
+    QCalendarWidget QToolButton#qt_calendar_prevmonth,
+    QCalendarWidget QToolButton#qt_calendar_nextmonth {{
+        min-width: 28px;
+        max-width: 28px;
+        padding: 0;
+    }}
+
+    QCalendarWidget QToolButton#qt_calendar_prevmonth {{
+        qproperty-icon: url({chevron_left_icon});
+    }}
+
+    QCalendarWidget QToolButton#qt_calendar_nextmonth {{
+        qproperty-icon: url({chevron_right_icon});
+    }}
+
+    QCalendarWidget QToolButton#qt_calendar_prevmonth:disabled {{
+        qproperty-icon: url({chevron_left_muted_icon});
+    }}
+
+    QCalendarWidget QToolButton#qt_calendar_nextmonth:disabled {{
+        qproperty-icon: url({chevron_right_muted_icon});
+    }}
+
+    QCalendarWidget QToolButton#qt_calendar_monthbutton,
+    QCalendarWidget QToolButton#qt_calendar_yearbutton {{
+        min-width: 72px;
+        padding: 0 8px;
         color: {tokens.text_primary};
+        font-weight: 700;
+    }}
+
+    QCalendarWidget QToolButton#qt_calendar_monthbutton::menu-indicator,
+    QCalendarWidget QToolButton#qt_calendar_yearbutton::menu-indicator {{
+        image: url({chevron_down_icon});
+        subcontrol-origin: padding;
+        subcontrol-position: center right;
+        width: 12px;
+        height: 12px;
+        right: 4px;
     }}
 
     QCalendarWidget QToolButton:hover {{
@@ -1079,6 +1455,31 @@ def build_stylesheet(tokens: ThemeTokens) -> str:
         border-radius: 10px;
         background-color: {surface_glass};
         color: {tokens.accent};
+    }}
+
+    QCalendarWidget QTableView {{
+        border: none;
+        outline: 0;
+        background-color: {surface_glass};
+        alternate-background-color: {surface_alt_glass};
+        color: {tokens.text_primary};
+        selection-background-color: {tokens.selection_bg};
+        selection-color: {tokens.text_primary};
+    }}
+
+    QCalendarWidget QTableView::item {{
+        border-radius: 8px;
+        padding: 4px 6px;
+    }}
+
+    QCalendarWidget QTableView::item:hover {{
+        background-color: {surface_alt_glass};
+        color: {tokens.text_primary};
+    }}
+
+    QCalendarWidget QTableView::item:selected {{
+        background-color: {tokens.selection_bg};
+        color: {tokens.text_primary};
     }}
 
     QCalendarWidget QAbstractItemView:enabled {{
@@ -1162,16 +1563,30 @@ def build_stylesheet(tokens: ThemeTokens) -> str:
         background: transparent;
     }}
 
-    QFrame#FlutterSectionCard {{
+    QFrame#FlutterSectionCard,
+    QFrame#ShowcaseSectionCard {{
         background-color: {surface_alt_glass};
         border: 1px solid {border_soft};
         border-radius: 16px;
     }}
 
-    QLabel#FlutterSectionTitle {{
+    QLabel#FlutterSectionTitle,
+    QLabel#ShowcaseSectionTitle {{
         color: {tokens.text_primary};
         font-size: 17px;
         font-weight: 700;
+    }}
+
+    QLabel#ShowcaseHeaderTitle {{
+        color: {tokens.text_primary};
+        font-size: 26px;
+        font-weight: 800;
+    }}
+
+    QLabel#ShowcaseHeaderSubtitle {{
+        color: {tokens.text_muted};
+        font-size: 13px;
+        font-weight: 500;
     }}
 
     QToolButton#FlutterMenuButton {{
@@ -1292,6 +1707,120 @@ def build_stylesheet(tokens: ThemeTokens) -> str:
         border: 1px solid transparent;
         border-radius: 999px;
         background-color: {accent_mid};
+    }}
+
+    QFrame#CommandDeck {{
+        background-color: {surface_glass};
+        border: 1px solid {border_soft};
+        border-radius: 22px;
+    }}
+
+    QLabel#CommandDeckBadge {{
+        min-width: 38px;
+        max-width: 38px;
+        min-height: 38px;
+        max-height: 38px;
+        border-radius: 19px;
+        border: 1px solid {accent_mid};
+        background-color: {accent_soft};
+        color: {tokens.accent};
+        font-size: 12px;
+        font-weight: 800;
+    }}
+
+    QLabel#CommandDeckTitle {{
+        color: {tokens.text_primary};
+        font-size: 26px;
+        font-weight: 800;
+    }}
+
+    QLabel#CommandDeckBody {{
+        color: {tokens.text_secondary};
+        font-size: 13px;
+    }}
+
+    QLineEdit#CommandDeckSearch {{
+        min-height: 44px;
+        background-color: {surface_alt_glass};
+    }}
+
+    QPushButton[commandChip="true"] {{
+        min-height: 32px;
+        padding: 0 12px;
+        border-radius: 16px;
+        font-weight: 600;
+    }}
+
+    QFrame#ActionTile {{
+        background-color: {surface_alt_glass};
+        border: 1px solid {border_soft};
+        border-radius: 18px;
+    }}
+
+    QFrame#ActionTile:hover {{
+        border-color: {accent_mid};
+        background-color: {surface_glass};
+    }}
+
+    QLabel#ActionTileBadge {{
+        min-width: 32px;
+        max-width: 32px;
+        min-height: 32px;
+        max-height: 32px;
+        border-radius: 16px;
+        font-size: 13px;
+        font-weight: 800;
+    }}
+
+    QLabel#ActionTileBadge[tone="success"] {{
+        color: {tokens.success};
+        background-color: {success_soft};
+        border: 1px solid {success_mid};
+    }}
+
+    QLabel#ActionTileBadge[tone="warning"] {{
+        color: {tokens.warning};
+        background-color: {warning_soft};
+        border: 1px solid {warning_mid};
+    }}
+
+    QLabel#ActionTileBadge[tone="danger"] {{
+        color: {tokens.danger};
+        background-color: {danger_soft};
+        border: 1px solid {danger_mid};
+    }}
+
+    QLabel#ActionTileBadge[tone="info"] {{
+        color: {tokens.accent};
+        background-color: {accent_soft};
+        border: 1px solid {accent_mid};
+    }}
+
+    QLabel#ActionTileMeta {{
+        background-color: {surface_glass};
+        border: 1px solid {border_soft};
+        border-radius: 11px;
+        padding: 2px 9px;
+        color: {tokens.text_secondary};
+        font-size: 11px;
+        font-weight: 700;
+    }}
+
+    QLabel#ActionTileTitle {{
+        color: {tokens.text_primary};
+        font-size: 16px;
+        font-weight: 700;
+    }}
+
+    QLabel#ActionTileBody {{
+        color: {tokens.text_muted};
+        font-size: 13px;
+    }}
+
+    QToolButton#ActionTileChevron {{
+        font-size: 15px;
+        font-weight: 800;
+        color: {tokens.text_secondary};
     }}
 
     QToolTip {{

@@ -1,5 +1,7 @@
 from widgets.cards import InfoCard
 from widgets.business import (
+	ActionTile,
+	CommandDeck,
 	EmptyStateCard,
 	FilterChipBar,
 	InsightBanner,
@@ -10,9 +12,11 @@ from widgets.business import (
 	StepProgress,
 	TimelineFeed,
 )
-from widgets.controls import PrimaryButton, SectionTitle
+from widgets.controls import PrimaryButton, SearchComboBox, SectionTitle
 
 __all__ = [
+	"ActionTile",
+	"CommandDeck",
 	"EmptyStateCard",
 	"FilterChipBar",
 	"InfoCard",
@@ -20,6 +24,7 @@ __all__ = [
 	"KpiStrip",
 	"MetricCard",
 	"PrimaryButton",
+	"SearchComboBox",
 	"SectionTitle",
 	"SegmentedControl",
 	"StatusLozenge",
